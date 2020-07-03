@@ -1,5 +1,5 @@
 #include "scpi/scpi.h"
-
+#include "DAC_control.hpp"
 
 #define TAG_REG_ENABLE 1
 #define TAG_REG_VALUE 2
@@ -12,7 +12,35 @@
 #define TAG_SWEEP_PSC 9
 #define TAG_SWEEP_PSC_VAL 10
 
-scpi_result_t LTC2662_query_property(scpi_t * context) {return SCPI_RES_OK;}
+scpi_result_t LTC2662_query_property(scpi_t * context) 
+{
+    dac_control_t* dac_control = (dac_control_t*) context->user_context;
+    int32_t channel_no;
+    LTC2662_Channel* cur_channel;
+    SCPI_CommandNumbers(context,&channel_no,1);
+    if (channel_no>=CHANNEL_COUNT)
+        return SCPI_RES_ERR;
+    cur_channel = &(dac_control->channels[channel_no]);
+    switch(SCPI_CmdTag(context))
+    {
+        case TAG_REG_ENABLE:
+            SCPI_ResultInt(context,cur_channel->isOn()); 
+            break;
+        case TAG_REG_VALUE:
+            SCPI_ResultDouble(context,cur_channel->getCurrent()); 
+            break;
+        case TAG_REG_MODE:
+            SCPI_ResultInt(context,0);  //TODO
+            break;
+        case TAG_REG_RANGE:
+            SCPI_ResultInt(context,cur_channel->getRange());
+            break;
+        default:
+            return SCPI_RES_ERR;
+            break; // should through error here
+    };
+    return SCPI_RES_OK;
+}
 scpi_result_t LTC2662_set_property(scpi_t * context) {return SCPI_RES_OK;}
 
 scpi_result_t SWEEP_query_property(scpi_t * context) {return SCPI_RES_OK;}
@@ -24,8 +52,8 @@ extern const scpi_command_t scpi_commands[] =  {
     //LTC functions
     { .pattern = "ENable#",  .callback = LTC2662_set_property,  .tag=TAG_REG_ENABLE},
     { .pattern = "ENable#?", .callback = LTC2662_query_property,.tag=TAG_REG_ENABLE},
-    { .pattern = "VALue#",   .callback = LTC2662_set_property,  .tag=TAG_REG_VALUE},
-    { .pattern = "VALue#?",  .callback = LTC2662_query_property,.tag=TAG_REG_VALUE},
+    { .pattern = "CURrent#",   .callback = LTC2662_set_property,  .tag=TAG_REG_VALUE},
+    { .pattern = "CURrent#?",  .callback = LTC2662_query_property,.tag=TAG_REG_VALUE},
     { .pattern = "RANGE#",   .callback = LTC2662_set_property,  .tag=TAG_REG_RANGE},
     { .pattern = "RANGE#?",  .callback = LTC2662_query_property,.tag=TAG_REG_RANGE},
     { .pattern = "MODE#",    .callback = LTC2662_set_property,  .tag=TAG_REG_MODE},
