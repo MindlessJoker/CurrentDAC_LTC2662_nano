@@ -5,6 +5,50 @@
 #include "scpi/scpi.h"
 #include <avr/pgmspace.h>
 
+
+unsigned long ms_timer = 0;
+unsigned long next_ms_time = 0;
+unsigned long mux_last_check_time = 0;
+bool timeout = false;
+bool check_mux = false;
+void startTimer(){
+    cli();// отключить глобальные прерывания    
+    TCCR1A = 0; // установить регистры в 0
+    TCCR1B = 0;
+    TCCR1B |= (1 << WGM12); // включение в CTC режим
+    TCCR1B |= (1 << CS10);
+    OCR1A = 16000; // установка таймера на 1 мс
+    TIMSK1 |= (1 << OCIE1A);  // включение прерываний по совпадению
+    sei();
+    ms_timer = 0;
+//    Serial.println("Timer started");
+}
+void stopTimer(){
+    TCCR1A = 0;
+    TCCR1B = 0; // stop timer
+}
+ISR(TIMER1_COMPA_vect){
+    ms_timer++;
+    mux_last_check_time++;
+//    if (ms_timer%100 == 0){
+//      Serial.println(ms_timer);
+//    }
+    if (ms_timer == next_ms_time){
+//        Serial.print("IN MSTIMER ");
+//        Serial.println(ms_timer);
+        timeout = true;
+    }
+    if (mux_last_check_time > 2000){
+        check_mux = true;
+    }
+}
+
+//#define TAG_REG_ENABLE 0
+
+
+
+
+extern const scpi_command_t scpi_commands[];
 size_t myWrite(scpi_t * context, const char * data, size_t len) {
     (void) context;
     return Serial.write(data,len);
@@ -14,12 +58,7 @@ char scpi_input_buffer[SCPI_INPUT_BUFFER_LENGTH];
 #define SCPI_ERROR_QUEUE_SIZE 5 
 int16_t scpi_error_queue_data[SCPI_ERROR_QUEUE_SIZE];
 // const scpi_command_t scpi_commands[] PROGMEM = 
-scpi_command_t scpi_commands[] =  {
-	{ .pattern = "*IDN?", .callback = SCPI_CoreIdnQ,},
-	{ .pattern = "*RST", .callback = SCPI_CoreRst,},
-	//{ .pattern = "MEASure:VOLTage:DC?", .callback = DMM_MeasureVoltageDcQ,},
-	SCPI_CMD_LIST_END
-};
+
 scpi_interface_t scpi_interface = {0};
 scpi_reg_val_t scpi_regs ={0};
 scpi_t scpi_context = {0};
@@ -46,11 +85,23 @@ void setup() {
     scpi_context.idn[3] = idns[3];
     Serial.begin(115200); // baud rate 
     SCPI_Init(&scpi_context);
+    startTimer();
 }
 char smbuffer[16];
+int read_num = 0;
+int time_to_process;
 void loop() {
-    SCPI_Input(&scpi_context, 
-                smbuffer, 
-                Serial.readBytes(smbuffer,sizeof(smbuffer)));
+    read_num = Serial.readBytes(smbuffer,sizeof(smbuffer));
+    if (read_num)
+    {
+        time_to_process = ms_timer;
+        SCPI_Input(&scpi_context, 
+                    smbuffer, 
+                    read_num);
+        time_to_process = ms_timer-time_to_process;
+        Serial.print(read_num);
+        Serial.print("  ");
+        Serial.print(time_to_process);
+    }
 
 }
