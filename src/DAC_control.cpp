@@ -10,6 +10,7 @@
 unsigned long ms_timer = 0;
 unsigned long next_ms_time = 0;
 unsigned long mux_last_check_time = 0;
+const int slaveSelectPin = 10;
 bool timeout = false;
 bool check_mux = false;
 void startTimer(){
@@ -45,7 +46,15 @@ ISR(TIMER1_COMPA_vect){
 }
 
 //#define TAG_REG_ENABLE 0
-
+writeSPI32(uint8_t command, uint8_t address, unsigned int value) {
+    uint8_t fault_reg, comm_and_addr,val1, val0;
+    digitalWrite(slaveSelectPin, LOW);
+    fault_reg = SPI.transfer(0);
+    comm_and_addr = SPI.transfer((command << 4) + address);
+    val1 = SPI.transfer(value>>8);
+    val0 = SPI.transfer(value);
+    digitalWrite(slaveSelectPin, HIGH);
+}
 
 extern const scpi_command_t scpi_commands[];
 size_t myWrite(scpi_t * context, const char * data, size_t len) {
@@ -70,14 +79,14 @@ void interrupt_handler(){
 //   }
 }
 
-const int slaveSelectPin = 10;
+
 dac_control_t dac_control = {
     .channels = {
-        LTC2662_Channel(0,100,0,0,0,8-0,slaveSelectPin),
-        LTC2662_Channel(1,100,0,0,0,8-1,slaveSelectPin),
-        LTC2662_Channel(2,100,0,0,0,8-2,slaveSelectPin),
-        LTC2662_Channel(3,100,0,0,0,8-3,slaveSelectPin),
-        LTC2662_Channel(4,100,0,0,0,8-4,slaveSelectPin)
+        LTC2662_Channel(0,100000,0,0,0,8-0,slaveSelectPin),
+        LTC2662_Channel(1,100000,0,0,0,8-1,slaveSelectPin),
+        LTC2662_Channel(2,100000,0,0,0,8-2,slaveSelectPin),
+        LTC2662_Channel(3,100000,0,0,0,8-3,slaveSelectPin),
+        LTC2662_Channel(4,100000,0,0,0,8-4,slaveSelectPin)
     },
 };
 void setup() {
@@ -107,7 +116,11 @@ void setup() {
     SPI.begin(); // initialize SPI:
     attachInterrupt(0,interrupt_handler,RISING);//connect trigger on pin 2
     for (byte i=0; i<5; ++i)
+    {
         pinMode(8-i,OUTPUT);
+        dac_control.channels[i].writeRange(100000);
+        dac_control.channels[i].writeCurrent(0);
+    }
 }
 char smbuffer[16];
 int read_num = 0;
@@ -123,3 +136,4 @@ void loop() {
     }
 
 }
+

@@ -4,41 +4,19 @@
 #include <avr/interrupt.h>
 #include "LTC2662.hpp"
 
+extern void writeSPI32(uint8_t command, uint8_t address, unsigned int value) ;
 
-void LTC2662_Channel::writeSPI32(uint8_t command, uint8_t address, unsigned int value) {
-    uint8_t fault_reg, comm_and_addr,val1, val0;
-    // take the SS pin low to select the chip:
-    digitalWrite(slaveSelectPin, LOW);
-    //  send in the address and value via SPI:
-    fault_reg = SPI.transfer(0);
-    comm_and_addr = SPI.transfer((command << 4) + address);
-    val1 = SPI.transfer(value>>8);
-    val0 = SPI.transfer(value);
-    digitalWrite(slaveSelectPin, HIGH);
-    // if (debug==SPI_DEBUG){
-    //     handleFaultReg(fault_reg);
-    //     if (comm_and_addr != old_comm_and_addr){
-    //         //Serial.print("c_a_err:w,r: "); Serial.print(old_comm_and_addr,BIN); //Serial.print("\t"); Serial.println(comm_and_addr,BIN);
-    //     }
-    //     if (((int(val1))*(2^8) + val0) != old_val){
-    //         //Serial.print("val_err:w,r: "); Serial.print(old_val, BIN); //Serial.print("\t"); Serial.println((int(val1))*(2^8) + val0,BIN);
-    //     }
-    //     old_val = value;
-    //     old_comm_and_addr = comm_and_addr;
-    // }
-
-
-}
 void LTC2662_Channel::setRange(unsigned long new_range){
     range = new_range;
     if (current*1000 > range){
         current = float(range)/1000;
     }
 }
-    
+void LTC2662_Channel::writeMux(int channel)
+{
+    writeSPI32(B1011,0,channel&(B11111));
+}
 void LTC2662_Channel::setCurrent(float new_current){
-    //Serial.print("New current ");
-    //Serial.println(new_current);
     if (new_current==0){
     sign = 0;
     current = 0;

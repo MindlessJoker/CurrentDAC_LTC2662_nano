@@ -23,10 +23,11 @@ public:
         pol_pin = a_pol_pin;
         slaveSelectPin = slaveSelectPin;
     }
-    void writeSPI32(uint8_t command, uint8_t address, unsigned int value);
+    // void writeSPI32(uint8_t command, uint8_t address, unsigned int value);
     void setRange(unsigned long new_range);
     long getRange(){return range;};
     void setCurrent(float new_current);
+    void writeMux(int channel);
     bool isOn();
     uint8_t getRangeCode();
     float getCurrent();
