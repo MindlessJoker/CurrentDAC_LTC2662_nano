@@ -100,11 +100,17 @@ void LTC2662_Channel::writeCurrent(float new_current){
     }
     else{
         if (pol_changed){
-            writeSPI32(B0110,channel,getRangeCode());
+            writeSPI32(B0110,channel,0); // high-z
+            delay(pol_changed_delay0);
             digitalWrite(pol_pin,sign);
+            delay(pol_changed_delay1);
+            writeSPI32(B0110,channel,getRangeCode());
             pol_changed = false;
         }
-        writeSPI32(B0,channel,getCurrentCode()); // write current to register
+        else
+        {
+            writeSPI32(B0,channel,getCurrentCode()); // write current to register
+        }
     }
     update(); // update channel's output
 }

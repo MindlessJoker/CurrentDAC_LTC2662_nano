@@ -10,6 +10,8 @@ class LTC2662_Channel{
     uint8_t on;
     uint8_t pol_pin;
     bool pol_changed = false;
+    uint32_t pol_changed_delay0 = 1; // swich current off
+    uint32_t pol_changed_delay1 = 5; // relay off
     float mux_current;
     uint8_t slaveSelectPin;
 public:

@@ -46,13 +46,12 @@ ISR(TIMER1_COMPA_vect){
 }
 
 //#define TAG_REG_ENABLE 0
-writeSPI32(uint8_t command, uint8_t address, unsigned int value) {
-    uint8_t fault_reg, comm_and_addr,val1, val0;
+void writeSPI32(uint8_t command, uint8_t address, unsigned int value) {
     digitalWrite(slaveSelectPin, LOW);
-    fault_reg = SPI.transfer(0);
-    comm_and_addr = SPI.transfer((command << 4) + address);
-    val1 = SPI.transfer(value>>8);
-    val0 = SPI.transfer(value);
+    SPI.transfer(0); //fault_reg
+    SPI.transfer((command << 4) + address); //comm_and_addr
+    SPI.transfer(value>>8); //val1
+    SPI.transfer(value); //val0
     digitalWrite(slaveSelectPin, HIGH);
 }
 
@@ -69,15 +68,9 @@ int16_t scpi_error_queue_data[SCPI_ERROR_QUEUE_SIZE];
 
 scpi_interface_t scpi_interface = {0};
 scpi_t scpi_context = {0};
-const char* idns[4] = {"LPI", "LTC2662", "0", "00"};
+const char* idns[4] = {"LPI", "CurrentDAC_LTC2662_nano", "0", "00"};
 
-void interrupt_handler(){
-//   t = millis();
-//   if (t - last_trigger_time > 10){ // it is not a noise
-//     last_trigger_time = t;
-//     triggered=true; // rise flag
-//   }
-}
+
 
 
 dac_control_t dac_control = {
@@ -88,7 +81,27 @@ dac_control_t dac_control = {
         LTC2662_Channel(3,100000,0,0,0,8-3,slaveSelectPin),
         LTC2662_Channel(4,100000,0,0,0,8-4,slaveSelectPin)
     },
+    .sweeps = {
+        Sweep(),
+        Sweep(),
+        Sweep(),
+        Sweep(),
+        Sweep()
+    },
+    .modes = {0,0,0,0,0}
 };
+void trigger0_handler(){
+    for(uint32_t i =0; i<CHANNEL_COUNT;++i)
+    {
+        if(dac_control.modes[i]==MODE_SWEEP)
+        {
+            if (dac_control.sweeps[i].sweep_step())
+                dac_control.channels[i].writeCurrent(dac_control.sweeps[i].get_value());
+        }
+    }
+}
+
+
 void setup() {
     scpi_context.cmdlist = scpi_commands;
     scpi_context.param_list = {0};
@@ -114,8 +127,8 @@ void setup() {
     startTimer();
     pinMode (slaveSelectPin, OUTPUT);
     SPI.begin(); // initialize SPI:
-    attachInterrupt(0,interrupt_handler,RISING);//connect trigger on pin 2
-    for (byte i=0; i<5; ++i)
+    attachInterrupt(0,trigger0_handler,RISING);//connect trigger on pin 2
+    for (byte i=0; i<CHANNEL_COUNT; ++i)
     {
         pinMode(8-i,OUTPUT);
         dac_control.channels[i].writeRange(100000);
