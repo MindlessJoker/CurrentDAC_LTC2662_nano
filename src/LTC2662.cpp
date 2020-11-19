@@ -127,7 +127,18 @@ void LTC2662_Channel::setToggle(bool toggle)
     uint8_t new_toggle = ((toggle? 1 : 0)<<channel);
     writeToggleRegister( (not_channel_mask & getToggleRegister()) | new_toggle );
 }
-
+void LTC2662_Channel::setGlobalToggle(bool toggle)
+{
+    writeSPI32(LTC2662_CMD_GLOBAL_TOGGLE,0 ,(unsigned int) (toggle?1:0));
+    if (toggle)
+    {
+        *(p_toggle_register) = *(p_toggle_register) | LTC2662_GLOBAL_TOGGLE_MASK;
+    }
+    else
+    {
+        *(p_toggle_register) = *(p_toggle_register) &(~LTC2662_GLOBAL_TOGGLE_MASK);
+    }
+}
 void LTC2662_Channel::writeToggleRegister(uint8_t toggle_reg)
 {
     toggle_reg = toggle_reg & 0x1F;
@@ -146,7 +157,6 @@ void LTC2662_Channel::writeCurrentRegisterAB(float current_, bool is_B)
     if (need_toggle)
         setToggle(is_B);
     //Write current
-    Serial.println(current_int);
     writeSPI32(LTC2662_CMD_WRITE,channel,current_int);
     if (need_toggle)
         setToggle(toggle);

@@ -68,7 +68,7 @@ const float LTC2662_MAX_OUTPUT[10] = {0.0, 3.125, 6.25, 12.5, 25.0, 50.0, 100.0,
 #define  LTC2662_THERMAL_SHUTDOWN            0x0002  //! Disable thermal shutdown (NOT RECOMMENDED)
 #define  LTC2662_POWERLIMIT_PROTECTION       0x0003  //! Disable power limit protection (NOT RECOMMENDED)
 #define  LTC2662_OPEN_CIRCUIT_DETECT_DISABLE 0x0004  //! Disable open circuit detection
-
+#define  LTC2662_GLOBAL_TOGGLE_MASK (1<<7)
 
 class LTC2662_Channel{
     static uint8_t global_toggle_register;
@@ -116,6 +116,8 @@ public:
 
     void setToggle(bool toggle);
     bool getToggle() {return (((1<<channel) & getToggleRegister())>>channel);}
+    void setGlobalToggle(bool toggle);
+    bool getGlobalToggle() {return (LTC2662_GLOBAL_TOGGLE_MASK & getToggleRegister())?1:0;}
     void writeMux(int channel);
     bool isOn();
     uint8_t getRangeCode();

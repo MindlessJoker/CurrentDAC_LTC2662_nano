@@ -6,18 +6,19 @@
 #include <avr/interrupt.h>
 
 
-#define TAG_REG_ENABLE 1
-#define TAG_REG_VALUE 2
-#define TAG_REG_MODE 3
-#define TAG_REG_RANGE 4
-#define TAG_REG_VALUE_B 5
-#define TAG_REG_TOGGLE 6
-#define TAG_SWEEP_START 10
-#define TAG_SWEEP_STEP 11
-#define TAG_SWEEP_IDX 12
-#define TAG_SWEEP_COUNT 13
-#define TAG_SWEEP_PSC 14
-#define TAG_SWEEP_PSC_VAL 15
+#define TAG_REG_ENABLE          1
+#define TAG_REG_VALUE           2
+#define TAG_REG_MODE            3
+#define TAG_REG_RANGE           4
+#define TAG_REG_VALUE_B         5
+#define TAG_REG_TOGGLE          6
+#define TAG_REG_TOGGLE_ENABLE   7
+#define TAG_SWEEP_START         10
+#define TAG_SWEEP_STEP          11
+#define TAG_SWEEP_IDX           12
+#define TAG_SWEEP_COUNT         13
+#define TAG_SWEEP_PSC           14
+#define TAG_SWEEP_PSC_VAL       15
 #define SCPI_RES_ERR SCPI_RES_OK
 
 int mux_pin = A0;
@@ -27,7 +28,10 @@ scpi_result_t LTC2662_query_property(scpi_t * context)
     dac_control_t* dac_control = (dac_control_t*) context->user_context;
     int32_t channel_no;
     LTC2662_Channel* cur_channel;
-    SCPI_CommandNumbers(context,&channel_no,1);
+    if (SCPI_CmdTag(context) == TAG_REG_TOGGLE_ENABLE)
+        channel_no = 0;
+    else
+        SCPI_CommandNumbers(context,&channel_no,1);
     if (channel_no>=CHANNEL_COUNT)
         return SCPI_RES_ERR;
     cur_channel = &(dac_control->channels[channel_no]);
@@ -44,6 +48,9 @@ scpi_result_t LTC2662_query_property(scpi_t * context)
             break;
         case TAG_REG_TOGGLE:
             SCPI_ResultInt(context,(int) cur_channel->getToggle()); 
+            break;
+        case TAG_REG_TOGGLE_ENABLE:
+            SCPI_ResultInt(context,(int) cur_channel->getGlobalToggle()); 
             break;
         case TAG_REG_MODE:
             SCPI_ResultInt(context,dac_control->modes[channel_no]);  //TODO
@@ -63,20 +70,26 @@ scpi_result_t LTC2662_set_property(scpi_t * context) {
     double d;
     int32_t i;
     LTC2662_Channel* cur_channel;
+    uint32_t tag = SCPI_CmdTag(context);
+    if (tag == TAG_REG_TOGGLE_ENABLE)
+        channel_no = 0;
+    else
+        SCPI_CommandNumbers(context,&channel_no,1);
     SCPI_CommandNumbers(context,&channel_no,1);
     
     if (channel_no>=CHANNEL_COUNT)
         return SCPI_RES_ERR;
     cur_channel = &(dac_control->channels[channel_no]);
-    switch(SCPI_CmdTag(context))
+    switch(tag)
     {
         case TAG_REG_RANGE:
         case TAG_REG_MODE:
         case TAG_REG_ENABLE:
         case TAG_REG_TOGGLE:
+        case TAG_REG_TOGGLE_ENABLE:
             if (SCPI_ParamInt(context,&i,true))
             {
-                switch(SCPI_CmdTag(context))
+                switch(tag)
                 {
                     case TAG_REG_RANGE:
                         cur_channel->writeRange(i);
@@ -92,6 +105,10 @@ scpi_result_t LTC2662_set_property(scpi_t * context) {
                         break;
                     case TAG_REG_TOGGLE:
                         cur_channel->setToggle((bool) i);
+                        break;
+                    case TAG_REG_TOGGLE_ENABLE:
+                        cur_channel->setGlobalToggle((bool) i);
+                        break;
                 }
             }
             else
@@ -100,7 +117,7 @@ scpi_result_t LTC2662_set_property(scpi_t * context) {
         case TAG_REG_VALUE_B:
         case TAG_REG_VALUE:
             SCPI_ParamDouble(context,&d,1); 
-            if (SCPI_CmdTag(context) == TAG_REG_VALUE)
+            if (tag == TAG_REG_VALUE)
                 cur_channel->setCurrent(d);
             else
                 cur_channel->setCurrentB(abs(d));
@@ -237,6 +254,8 @@ extern const scpi_command_t scpi_commands[] =  {
     { .pattern = "MODE#?",   .callback = LTC2662_query_property,.tag=TAG_REG_MODE},
     { .pattern = "TOGGLE#",    .callback = LTC2662_set_property,  .tag=TAG_REG_TOGGLE},
     { .pattern = "TOGGLE#?",   .callback = LTC2662_query_property,.tag=TAG_REG_TOGGLE},
+    { .pattern = "TOGGLEENABLE",    .callback = LTC2662_set_property,  .tag=TAG_REG_TOGGLE_ENABLE},
+    { .pattern = "TOGGLEENABLE?",   .callback = LTC2662_query_property,.tag=TAG_REG_TOGGLE_ENABLE},
     { .pattern = "ALTCURrent#",    .callback = LTC2662_set_property,  .tag=TAG_REG_VALUE_B},
     { .pattern = "ALTCURrent#?",    .callback = LTC2662_query_property,  .tag=TAG_REG_VALUE_B},
     { .pattern = "SWEEP#:START",    .callback = SWEEP_set_property,     .tag=TAG_SWEEP_START},
