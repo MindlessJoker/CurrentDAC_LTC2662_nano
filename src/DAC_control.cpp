@@ -49,7 +49,7 @@ ISR(TIMER1_COMPA_vect){
 void writeSPI32(uint8_t command, uint8_t address, unsigned int value) {
     digitalWrite(slaveSelectPin, LOW);
     SPI.transfer(0); //fault_reg
-    SPI.transfer((command << 4) + address); //comm_and_addr
+    SPI.transfer((command&(0xF0)) | (address&(0x0F))); //comm_and_addr
     SPI.transfer(value>>8); //val1
     SPI.transfer(value); //val0
     digitalWrite(slaveSelectPin, HIGH);
@@ -96,7 +96,7 @@ void trigger0_handler(){
         if(dac_control.modes[i]==MODE_SWEEP)
         {
             if (dac_control.sweeps[i].sweep_step())
-                dac_control.channels[i].writeCurrent(dac_control.sweeps[i].get_value());
+                dac_control.channels[i].setCurrent(dac_control.sweeps[i].get_value());
         }
     }
 }
@@ -132,7 +132,7 @@ void setup() {
     {
         pinMode(8-i,OUTPUT);
         dac_control.channels[i].writeRange(100000);
-        dac_control.channels[i].writeCurrent(0);
+        dac_control.channels[i].setCurrent(0);
     }
 }
 char smbuffer[16];
