@@ -6,6 +6,8 @@
 
 extern void writeSPI32(uint8_t command, uint8_t address, unsigned int value) ;
 
+uint8_t LTC2662_Channel::global_toggle_register = 0;
+
 void LTC2662_Channel::setRange(unsigned long new_range){
     range = new_range;
     if (current*1000 > range){
@@ -17,25 +19,25 @@ void LTC2662_Channel::writeMux(int channel)
     writeSPI32(LTC2662_CMD_MUX,0,channel&(B11111));
 }
 void LTC2662_Channel::prepareCurrentChange(float new_current){
+    uint8_t new_sign =new_current<0 ? 1: 0;
     if (new_current==0){
         sign = 0;
         current = 0;
         on=0;
     }
     else{
-        if ((new_current>0)==sign){
+        if ( new_sign != sign){
             pol_changed=true;
-            if (sign==0){
-                sign =1;
-            }
-            else{
-                sign =0;
-            }
+            sign = new_sign;
         }
         if (abs(new_current)*1000 > range)
+        {
             current = float(range)/1000;
+            if(sign)
+                current = -current;
+        }
         else
-            current = abs(new_current);
+            current = new_current;
         on = 1;
     }
 }
@@ -72,9 +74,6 @@ float LTC2662_Channel::getCurrent(){
     return current;
 }
     
-unsigned int LTC2662_Channel::getCurrentCode(){
-    return (unsigned int)((current*1000/range)*65535);
-}
     
 uint8_t LTC2662_Channel::getPolPin(){
     return pol_pin;
@@ -105,12 +104,9 @@ void LTC2662_Channel::setCurrent(float new_current){
             writeSPI32(LTC2662_CMD_RANGE,channel,getRangeCode());
             pol_changed = false;
         }
-        else
-        {
-            writeSPI32(LTC2662_CMD_WRITE,channel,getCurrentCode()); // write current to register
-        }
+        writeCurrentRegisterAB(abs(current), false); // write current to register
+        update(); // update channel's output
     }
-    update(); // update channel's output
 }
     
 void LTC2662_Channel::update(){
@@ -119,15 +115,39 @@ void LTC2662_Channel::update(){
 
 void LTC2662_Channel::setCurrentB(float new_current)
 {
-    init8_t toggle = getToggle();
-    setToggle(1);
-    //Write current
-    
-    setToggle(toggle);
+    if (abs(new_current)*1000 > range)
+        currentB = float(range)/1000;
+    else
+        currentB = abs(new_current);
+    writeCurrentRegisterAB(currentB,true);
 }
-void LTC2662_Channel::setToggle()
+void LTC2662_Channel::setToggle(bool toggle)
 {
-
+    uint8_t not_channel_mask = ~(1<<channel);
+    uint8_t new_toggle = ((toggle? 1 : 0)<<channel);
+    writeToggleRegister( (not_channel_mask & getToggleRegister()) | new_toggle );
 }
-uint8_t LTC2662_Channel::getToggleRegister();
-void LTC2662_Channel::setToggleRegister(uint8_t toggle_reg);
+
+void LTC2662_Channel::writeToggleRegister(uint8_t toggle_reg)
+{
+    toggle_reg = toggle_reg & 0x1F;
+    *(p_toggle_register) = toggle_reg;
+    writeSPI32(LTC2662_CMD_TOGGLE_SEL,0 ,(unsigned int) toggle_reg);
+}
+
+void LTC2662_Channel::writeCurrentRegisterAB(float current_, bool is_B)
+{
+    is_B = is_B ? 1 : 0;
+    bool toggle = getToggle();
+    bool need_toggle = (toggle ^ is_B);
+
+    
+    uint16_t current_int = floatToCurrent(current_);
+    if (need_toggle)
+        setToggle(is_B);
+    //Write current
+    Serial.println(current_int);
+    writeSPI32(LTC2662_CMD_WRITE,channel,current_int);
+    if (need_toggle)
+        setToggle(toggle);
+}

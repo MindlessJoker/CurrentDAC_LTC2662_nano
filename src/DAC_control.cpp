@@ -71,8 +71,6 @@ scpi_t scpi_context = {0};
 const char* idns[4] = {"LPI", "CurrentDAC_LTC2662_nano", "0", "00"};
 
 
-
-
 dac_control_t dac_control = {
     .channels = {
         LTC2662_Channel(0,100000,0,0,0,8-0,slaveSelectPin),
